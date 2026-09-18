@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=Switcheroo
+GenericName=Window Switcher
+Comment=The incremental-search task switcher for Linux Mint
+Exec=switcheroo
+Icon=switcheroo
+Terminal=false
+Categories=Utility;DesktopUtility;
+Keywords=window;switcher;task;search;alt-tab;
+StartupNotify=false
+X-GNOME-Autostart-enabled=false
+Actions=Toggle;
+
+[Desktop Action Toggle]
+Name=Toggle Switcher
+Exec=switcheroo --toggle
