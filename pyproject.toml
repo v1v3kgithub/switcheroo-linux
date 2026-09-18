@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "The incremental-search task switcher for Linux Mint and Cinnamon"
 readme = "README.md"
 authors = [
-    { name = "Vivek", email = "vivek@example.com" }
+    { name = "Switcheroo Linux Contributors" }
 ]
 license = { text = "GPL-3.0-or-later" }
 classifiers = [

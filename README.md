@@ -216,6 +216,6 @@ To cleanly remove Switcheroo, its desktop launcher, and all associated assets:
 
 ## 📄 License & Credits
 
-- **Ported & Maintained for Linux Mint** by Vivek.
+- **Ported & Maintained for Linux Mint** by the Open Source Community.
 - **Original Windows Switcheroo** Copyright © James Sulak and Regin Larsen ([kvakulo/Switcheroo](https://github.com/kvakulo/Switcheroo)).
 - Licensed under the [GNU General Public License v3.0](LICENSE).
