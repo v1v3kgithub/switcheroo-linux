@@ -13,6 +13,7 @@ class Config:
     autostart: bool = False
     max_results: int = 12
     window_width: int = 560
+    window_height: int = 500
     show_help: bool = False
 
     @classmethod
@@ -40,7 +41,11 @@ class Config:
         try:
             with open(cfg_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+            config = cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+            missing = [k for k in cls.__dataclass_fields__ if k not in data]
+            if missing:
+                config.save()
+            return config
         except Exception:
             return cls()
 

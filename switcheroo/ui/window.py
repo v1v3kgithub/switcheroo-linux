@@ -114,7 +114,7 @@ class SwitcherWindow(Gtk.Window):
         self.set_skip_pager_hint(True)
         self.set_keep_above(True)
         self.set_position(Gtk.WindowPosition.CENTER)
-        self.set_default_size(self.config.window_width, 380)
+        self.set_default_size(self.config.window_width, self.config.window_height)
 
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
@@ -185,8 +185,7 @@ class SwitcherWindow(Gtk.Window):
         self.scrolled_window.set_policy(
             Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC
         )
-        self.scrolled_window.set_min_content_height(280)
-        self.scrolled_window.set_max_content_height(450)
+        self._apply_scrolled_window_height()
         self.scrolled_window.set_propagate_natural_height(True)
 
         self.list_box = Gtk.ListBox()
@@ -196,6 +195,26 @@ class SwitcherWindow(Gtk.Window):
         self.scrolled_window.add(self.list_box)
 
         container.pack_start(self.scrolled_window, True, True, 0)
+
+    def _apply_scrolled_window_height(self) -> None:
+        chrome_height = 70
+        max_content_height = max(self.config.window_height - chrome_height, 150)
+        min_content_height = min(280, max_content_height)
+        self.scrolled_window.set_min_content_height(min_content_height)
+        self.scrolled_window.set_max_content_height(max_content_height)
+
+    def reload_config(self) -> None:
+        """Reloads configuration and applies geometry changes if window dimensions changed."""
+        new_config = Config.load()
+        size_changed = (
+            new_config.window_width != self.config.window_width
+            or new_config.window_height != self.config.window_height
+        )
+        self.config = new_config
+        if size_changed:
+            self.set_default_size(self.config.window_width, self.config.window_height)
+            self.resize(self.config.window_width, self.config.window_height)
+            self._apply_scrolled_window_height()
 
     def _connect_signals(self) -> None:
         self.connect("key-press-event", self._on_key_press)
@@ -215,6 +234,7 @@ class SwitcherWindow(Gtk.Window):
 
     def show_switcher(self) -> None:
         """Refreshes open windows and presents the switcher overlay."""
+        self.reload_config()
         self._is_switching = False
         self._shown_timestamp = time.time()
 
@@ -280,6 +300,8 @@ class SwitcherWindow(Gtk.Window):
         self._filtered_windows = self.filterer.filter(
             self._windows, query, self._foreground_process
         )
+        if self.config.max_results and self.config.max_results > 0:
+            self._filtered_windows = self._filtered_windows[: self.config.max_results]
 
         for win in self._filtered_windows:
             row = WindowRow(win)

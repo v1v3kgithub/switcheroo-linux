@@ -195,12 +195,16 @@ Preferences are stored in `~/.config/switcheroo/config.json`:
   "autostart": false,
   "max_results": 12,
   "window_width": 560,
+  "window_height": 500,
   "show_help": false
 }
 ```
 
-- **`hotkey`**: Any valid Keybinder shortcut string (e.g. `<Super>space`, `<Control><Alt>s`, `<Alt>Tab`).
-- **`autostart`**: `true` launches Switcheroo on user login (also toggleable via the system tray icon).
+- **`window_height`**: Maximum height of the search overlay window in pixels (default: `500`). Increase this (e.g. `650`, `750`) to display more window entries simultaneously without scrolling.
+- **`window_width`**: Width of the search overlay window in pixels (default: `560`).
+- **`max_results`**: Maximum number of search results displayed (default: `12`). Set to `0` or negative to show all matching windows.
+- **`hotkey`**: Any valid Keybinder shortcut string (e.g. `<Alt>space`, `<Control><Alt>space`, `<Super>space`).
+- **`autostart`**: `true` launches Switcheroo automatically on user login (also toggleable via the system tray icon).
 
 ---
 
