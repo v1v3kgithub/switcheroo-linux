@@ -121,7 +121,7 @@ class TrayIndicator:
         about.set_logo_icon_name("preferences-system-windows")
         about.set_authors([
             "Ported for Linux Mint by the Open Source Community",
-            "Original Windows Switcheroo by James Sulak & Regin Larsen",
+            "Original Windows Switcheroo by James Sulak and Regin Larsen",
         ])
         about.set_license_type(Gtk.License.GPL_3_0)
         about.set_website("https://github.com/v1v3kgithub/switcheroo-linux")
