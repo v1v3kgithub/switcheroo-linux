@@ -1,6 +1,7 @@
 """Main GTK3 overlay window for Switcheroo."""
 
 import os
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -8,12 +9,14 @@ import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Gdk, GdkPixbuf, GLib, Gtk
+gi.require_version("GdkX11", "3.0")
+from gi.repository import Gdk, GdkPixbuf, GdkX11, GLib, Gtk
 
 from switcheroo.config import Config
 from switcheroo.core.filterer import WindowFilterer
 from switcheroo.core.window_finder import WindowFinder
 from switcheroo.core.window_model import AppWindow
+from switcheroo.ui.x11_focus import force_window_focus
 
 
 class WindowRow(Gtk.ListBoxRow):
@@ -92,6 +95,8 @@ class SwitcherWindow(Gtk.Window):
         self._windows: List[AppWindow] = []
         self._filtered_windows: List[AppWindow] = []
         self._foreground_process: Optional[str] = None
+        self._active_window_xid: int = 0
+        self._shown_timestamp: float = 0.0
         self._is_switching = False
 
         self._setup_window_properties()
@@ -102,6 +107,9 @@ class SwitcherWindow(Gtk.Window):
     def _setup_window_properties(self) -> None:
         self.set_title("Switcheroo")
         self.set_decorated(False)
+        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+        self.set_modal(True)
+        self.set_urgency_hint(True)
         self.set_skip_taskbar_hint(True)
         self.set_skip_pager_hint(True)
         self.set_keep_above(True)
@@ -208,19 +216,51 @@ class SwitcherWindow(Gtk.Window):
     def show_switcher(self) -> None:
         """Refreshes open windows and presents the switcher overlay."""
         self._is_switching = False
+        self._shown_timestamp = time.time()
+
         windows, active_window = self.finder.get_windows()
         self._windows = windows
         self._foreground_process = (
             active_window.process_title if active_window else None
         )
+        self._active_window_xid = active_window.xid if active_window else 0
 
         self.search_entry.set_text("")
         self._update_list("")
 
         self.show_all()
         self.help_bar.set_visible(self.config.show_help)
-        self.present()
+
+        # Force window realization to obtain XID
+        self.realize()
+        gdk_win = self.get_window()
+        if gdk_win:
+            try:
+                server_time = GdkX11.x11_get_server_time(gdk_win)
+                self.present_with_time(server_time)
+            except Exception:
+                self.present()
+            force_window_focus(gdk_win.get_xid(), self._active_window_xid)
+        else:
+            self.present()
+
         self.search_entry.grab_focus()
+
+        # Multi-stage focus assurance to override window manager focus-stealing prevention
+        def _ensure_entry_focus() -> bool:
+            if not self.is_visible():
+                return False
+            w = self.get_window()
+            if w:
+                force_window_focus(w.get_xid(), self._active_window_xid)
+            self.search_entry.grab_focus()
+            self.search_entry.set_position(-1)
+            return False
+
+        GLib.idle_add(_ensure_entry_focus)
+        GLib.timeout_add(30, _ensure_entry_focus)
+        GLib.timeout_add(80, _ensure_entry_focus)
+        GLib.timeout_add(150, _ensure_entry_focus)
 
     def hide_switcher(self) -> None:
         """Hides the switcher overlay."""
@@ -363,6 +403,10 @@ class SwitcherWindow(Gtk.Window):
             row.app_window.switch_to(Gtk.get_current_event_time())
 
     def _on_focus_out(self, _widget: Gtk.Widget, _event: Gdk.EventFocus) -> bool:
+        # Ignore spurious focus-out events during the initial 250ms of appearance
+        if time.time() - self._shown_timestamp < 0.25:
+            return False
+
         if not self._is_switching:
             self.hide_switcher()
         return False
