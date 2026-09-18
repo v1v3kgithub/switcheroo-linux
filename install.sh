@@ -9,9 +9,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$HOME/.local/bin"
 APP_DIR="$HOME/.local/share/applications"
 ICON_DIR="$HOME/.local/share/icons/hicolor/48x48/apps"
+DATA_DIR="$HOME/.local/share/switcheroo"
 
 # 1. Check Python and GObject Introspection dependencies
-echo "-> Checking dependencies..."
+echo "-> Checking system dependencies..."
 python3 -c "
 import sys
 missing = []
@@ -43,21 +44,32 @@ if missing:
     sys.exit(1)
 " || exit 1
 
-echo "✓ Dependencies verified!"
+echo "✓ System dependencies verified!"
 
-# 2. Install executable and package
+# 2. Install application package into ~/.local/share/switcheroo
+echo "-> Installing application files to $DATA_DIR..."
+mkdir -p "$DATA_DIR"
+rm -rf "$DATA_DIR/switcheroo"
+cp -r "$SCRIPT_DIR/switcheroo" "$DATA_DIR/"
+
+# 3. Create launcher script in ~/.local/bin/switcheroo
 mkdir -p "$BIN_DIR"
-echo "-> Installing Python package and CLI launcher to $BIN_DIR..."
-python3 -m pip install --user --no-deps "$SCRIPT_DIR"
+echo "-> Creating CLI launcher in $BIN_DIR/switcheroo..."
+cat << 'EOF' > "$BIN_DIR/switcheroo"
+#!/usr/bin/env bash
+export PYTHONPATH="$HOME/.local/share/switcheroo:$PYTHONPATH"
+exec /usr/bin/python3 -m switcheroo.app "$@"
+EOF
+chmod +x "$BIN_DIR/switcheroo"
 
-# 3. Install Icon
+# 4. Install Icon
 mkdir -p "$ICON_DIR"
 if [ -f "$SCRIPT_DIR/assets/switcheroo.png" ]; then
     echo "-> Installing application icon..."
     cp "$SCRIPT_DIR/assets/switcheroo.png" "$ICON_DIR/switcheroo.png"
 fi
 
-# 4. Install Desktop File
+# 5. Install Desktop File
 mkdir -p "$APP_DIR"
 echo "-> Installing desktop launcher to $APP_DIR..."
 sed "s|Exec=switcheroo|Exec=$BIN_DIR/switcheroo|g" "$SCRIPT_DIR/data/switcheroo.desktop" > "$APP_DIR/switcheroo.desktop"
@@ -69,12 +81,16 @@ fi
 
 echo ""
 echo "==========================================="
-echo "✓ Installation Complete!"
+echo "✓ Switcheroo Installed Successfully!"
 echo "==========================================="
 echo "You can now run Switcheroo:"
 echo "  - From terminal: switcheroo"
 echo "  - From Application Menu: Search 'Switcheroo'"
-echo "  - Global Hotkey: Alt + Space (customizable)"
+echo "  - Global Hotkey: Alt + Space (customizable in ~/.config/switcheroo/config.json)"
 echo ""
-echo "Note: If '$BIN_DIR' is not in your PATH, add this to your ~/.bashrc:"
-echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    echo "Notice: '$BIN_DIR' is not currently in your PATH."
+    echo "Add it to your environment by adding this line to ~/.bashrc:"
+    echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    echo ""
+fi
