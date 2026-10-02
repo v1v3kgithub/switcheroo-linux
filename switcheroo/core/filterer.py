@@ -48,16 +48,42 @@ class WindowFilterer:
                 )
             return list(windows)
 
-        filter_text = query
-        process_filter_text: Optional[str] = None
+        scored_results: List[FilterResult] = []
 
         if "." in query:
-            parts = query.split(".", 1)
-            process_filter_text = parts[0]
-            if not process_filter_text and foreground_process_title:
-                process_filter_text = foreground_process_title
-            filter_text = parts[1]
+            # Try <proc>.<title> (or .<title> for the foreground app) first.
+            process_text, title_text = query.split(".", 1)
+            if not process_text and foreground_process_title:
+                process_text = foreground_process_title
+            scored_results = self._match(windows, title_text, process_text)
 
+        if not scored_results:
+            # Plain search, also used when the dot syntax matches nothing, so a literal
+            # dot (README.md, v1.2) still finds windows whose title contains it.
+            scored_results = self._match(windows, query, None)
+
+        # Sort descending by total score. The sort is stable and windows arrive in MRU
+        # order from WindowFinder, so equal scores are ranked most recently used first.
+        scored_results.sort(key=lambda r: r.total_score, reverse=True)
+
+        matched_windows: List[AppWindow] = []
+        for r in scored_results:
+            win = r.window
+            win.formatted_title = self._get_formatted_best_match(win.title, r.title_match_results)
+            win.formatted_process_title = self._get_formatted_best_match(
+                win.process_title, r.process_match_results
+            )
+            matched_windows.append(win)
+
+        return matched_windows
+
+    def _match(
+        self,
+        windows: Sequence[AppWindow],
+        filter_text: str,
+        process_filter_text: Optional[str],
+    ) -> List[FilterResult]:
+        """Scores windows against a title query and, if given, a separate process query."""
         scored_results: List[FilterResult] = []
 
         for w in windows:
@@ -91,20 +117,7 @@ class WindowFilterer:
                 )
             )
 
-        # Sort descending by total score. The sort is stable and windows arrive in MRU
-        # order from WindowFinder, so equal scores are ranked most recently used first.
-        scored_results.sort(key=lambda r: r.total_score, reverse=True)
-
-        matched_windows: List[AppWindow] = []
-        for r in scored_results:
-            win = r.window
-            win.formatted_title = self._get_formatted_best_match(win.title, r.title_match_results)
-            win.formatted_process_title = self._get_formatted_best_match(
-                win.process_title, r.process_match_results
-            )
-            matched_windows.append(win)
-
-        return matched_windows
+        return scored_results
 
     def _score(self, text: str, query_pattern: str) -> List[MatchResult]:
         if not query_pattern:
