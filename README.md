@@ -105,6 +105,7 @@ switcheroo --verbose   # Run with debug logging in terminal
 | **Navigate Up** | `↑`, `Shift + Tab`, or `Alt + K` | Cycles backward through matching windows |
 | **Filter by Active App** | `.<query>` | Leading dot filters only within the active app's windows |
 | **Restrict Process & Title** | `<proc>.<title>` | e.g. `code.main` matches process "code" and title "main" |
+| **Search Text with a Dot** | e.g. `README.md`, `v1.2` | If a dot query matches nothing as `<proc>.<title>` (or `.<query>`), the whole query is searched as plain text |
 | **Dismiss Switcher** | `Esc` or Click Outside | Closes Switcheroo without switching |
 
 ---
