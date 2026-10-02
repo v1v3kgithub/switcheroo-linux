@@ -1,23 +1,45 @@
 """Window discovery and enumeration using libwnck."""
 
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 import gi
 gi.require_version("Wnck", "3.0")
 from gi.repository import Wnck
 
+from switcheroo.core.mru import MruTracker
 from switcheroo.core.window_model import AppWindow
 
 
 class WindowFinder:
     """Discovers and filters top-level desktop windows via libwnck."""
 
-    def __init__(self) -> None:
-        self.screen = Wnck.Screen.get_default()
+    def __init__(self, screen: Optional[Any] = None) -> None:
+        self.screen = screen or Wnck.Screen.get_default()
+        self.mru = MruTracker()
+
+        # Long-lived subscriptions: the finder lives as long as the daemon, so focus
+        # history accumulates between switcher invocations.
+        self.screen.connect("active-window-changed", self._on_active_window_changed)
+        self.screen.connect("window-closed", self._on_window_closed)
+
+    def _on_active_window_changed(self, screen: Any, _previous: Any) -> None:
+        active = screen.get_active_window()
+        if active:
+            self.mru.touch(active.get_xid())
+
+    def _on_window_closed(self, _screen: Any, window: Any) -> None:
+        self.mru.forget(window.get_xid())
 
     def get_windows(self) -> Tuple[List[AppWindow], Optional[AppWindow]]:
-        """Returns a list of taskbar windows and the currently active foreground window."""
+        """Returns taskbar windows in MRU order, and the currently active foreground window."""
         self.screen.force_update()
+
+        # Windows not yet seen activated take their order from the stacking order,
+        # topmost (most recently raised) first.
+        self.mru.seed(w.get_xid() for w in reversed(self.screen.get_windows_stacked()))
+
         active_wnck = self.screen.get_active_window()
+        if active_wnck:
+            self.mru.touch(active_wnck.get_xid())
         active_app_window: Optional[AppWindow] = None
 
         all_windows = self.screen.get_windows()
@@ -66,13 +88,12 @@ class WindowFinder:
 
             window_list.append(app_win)
 
-        # Reorder: if the active window is at the top of the list, move it to the bottom.
-        # This mirrors Switcheroo's MRU behavior so the previously focused window is selected first.
-        if window_list and active_app_window:
-            if window_list[0].xid == active_app_window.xid or (
-                window_list[0].pid == active_app_window.pid and window_list[0].pid > 0
-            ):
-                first = window_list.pop(0)
-                window_list.append(first)
+        window_list = self.mru.sort(window_list)
+
+        # The active window is the one being switched away from, so list it last and the
+        # previously used window is selected first, as in the original Switcheroo.
+        if active_app_window:
+            window_list = [w for w in window_list if w is not active_app_window]
+            window_list.append(active_app_window)
 
         return window_list, active_app_window
