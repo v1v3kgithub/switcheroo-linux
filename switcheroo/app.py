@@ -15,6 +15,7 @@ from gi.repository import GLib, Gtk
 
 from switcheroo.config import Config
 from switcheroo.hotkey import HotkeyManager
+from switcheroo.ipc import get_socket_path
 from switcheroo.tray import TrayIndicator
 from switcheroo.ui.window import SwitcherWindow
 
@@ -24,10 +25,9 @@ logger = logging.getLogger("switcheroo")
 class SwitcherooApp:
     """Coordinates window, hotkey, tray, and single-instance IPC."""
 
-    SOCKET_PATH = f"/tmp/switcheroo-{os.getuid()}.sock"
-
     def __init__(self, config: Config) -> None:
         self.config = config
+        self.socket_path = str(get_socket_path())
         self.window = SwitcherWindow(self.config)
         self.hotkey = HotkeyManager(self.toggle_switcher)
         self.tray = TrayIndicator(self.config, self.toggle_switcher, self.quit)
@@ -50,23 +50,23 @@ class SwitcherooApp:
                 self.server_sock.close()
             except Exception:
                 pass
-        if os.path.exists(self.SOCKET_PATH):
+        if os.path.exists(self.socket_path):
             try:
-                os.unlink(self.SOCKET_PATH)
+                os.unlink(self.socket_path)
             except Exception:
                 pass
         Gtk.main_quit()
 
     def start_ipc_server(self) -> None:
         """Starts Unix domain socket listener for CLI toggle signals."""
-        if os.path.exists(self.SOCKET_PATH):
+        if os.path.exists(self.socket_path):
             try:
-                os.unlink(self.SOCKET_PATH)
+                os.unlink(self.socket_path)
             except Exception:
                 pass
 
         self.server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.server_sock.bind(self.SOCKET_PATH)
+        self.server_sock.bind(self.socket_path)
         self.server_sock.listen(5)
         self.server_sock.setblocking(False)
 
@@ -119,7 +119,7 @@ class SwitcherooApp:
 
 def send_ipc_command(command: str) -> bool:
     """Attempts to send a command to an existing running Switcheroo instance."""
-    sock_path = f"/tmp/switcheroo-{os.getuid()}.sock"
+    sock_path = str(get_socket_path())
     if not os.path.exists(sock_path):
         return False
 
