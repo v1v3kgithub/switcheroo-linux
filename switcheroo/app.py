@@ -15,6 +15,7 @@ from gi.repository import GLib, Gtk
 
 from switcheroo.config import Config
 from switcheroo.hotkey import HotkeyManager
+from switcheroo.ipc import IpcSocketError, create_server_socket, get_socket_path, is_own_socket
 from switcheroo.tray import TrayIndicator
 from switcheroo.ui.window import SwitcherWindow
 
@@ -24,10 +25,9 @@ logger = logging.getLogger("switcheroo")
 class SwitcherooApp:
     """Coordinates window, hotkey, tray, and single-instance IPC."""
 
-    SOCKET_PATH = f"/tmp/switcheroo-{os.getuid()}.sock"
-
     def __init__(self, config: Config) -> None:
         self.config = config
+        self.socket_path = str(get_socket_path())
         self.window = SwitcherWindow(self.config)
         self.hotkey = HotkeyManager(self.toggle_switcher)
         self.tray = TrayIndicator(self.config, self.toggle_switcher, self.quit)
@@ -50,25 +50,16 @@ class SwitcherooApp:
                 self.server_sock.close()
             except Exception:
                 pass
-        if os.path.exists(self.SOCKET_PATH):
+        if is_own_socket(self.socket_path):
             try:
-                os.unlink(self.SOCKET_PATH)
+                os.unlink(self.socket_path)
             except Exception:
                 pass
         Gtk.main_quit()
 
     def start_ipc_server(self) -> None:
         """Starts Unix domain socket listener for CLI toggle signals."""
-        if os.path.exists(self.SOCKET_PATH):
-            try:
-                os.unlink(self.SOCKET_PATH)
-            except Exception:
-                pass
-
-        self.server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.server_sock.bind(self.SOCKET_PATH)
-        self.server_sock.listen(5)
-        self.server_sock.setblocking(False)
+        self.server_sock = create_server_socket(self.socket_path)
 
         def handle_socket_connection(source, condition):
             try:
@@ -119,8 +110,9 @@ class SwitcherooApp:
 
 def send_ipc_command(command: str) -> bool:
     """Attempts to send a command to an existing running Switcheroo instance."""
-    sock_path = f"/tmp/switcheroo-{os.getuid()}.sock"
-    if not os.path.exists(sock_path):
+    sock_path = str(get_socket_path())
+    # Only talk to a socket we own; anything else is not our daemon.
+    if not is_own_socket(sock_path):
         return False
 
     try:
@@ -186,7 +178,11 @@ def main() -> None:
     # Otherwise, start as daemon
     config = Config.load()
     app = SwitcherooApp(config)
-    app.run(show_immediately=args.show)
+    try:
+        app.run(show_immediately=args.show)
+    except IpcSocketError as e:
+        logger.error("%s", e)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
