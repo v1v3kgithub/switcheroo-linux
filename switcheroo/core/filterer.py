@@ -91,7 +91,8 @@ class WindowFilterer:
                 )
             )
 
-        # Sort descending by total score
+        # Sort descending by total score. The sort is stable and windows arrive in MRU
+        # order from WindowFinder, so equal scores are ranked most recently used first.
         scored_results.sort(key=lambda r: r.total_score, reverse=True)
 
         matched_windows: List[AppWindow] = []
