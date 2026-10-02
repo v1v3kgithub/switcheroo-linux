@@ -1,7 +1,8 @@
 # CLAUDE.md
 
 Switcheroo for Linux: a keyboard-driven window switcher (Python 3, GTK 3, libwnck).
-Run the test suite with `python -m unittest discover -s tests -v` (the same command CI runs).
+Run the test suite with `/usr/bin/python3 -m unittest discover -s tests -v`, as CI does:
+the system Python with the distro's `python3-gi`, not a pip-installed PyGObject.
 
 ## Git workflow
 
@@ -22,6 +23,7 @@ When assigned an issue: `git fetch origin main`, create `<prefix>/<issue>-<slug>
 Examples: `bugfix/6-literal-dot-queries`, `feature/12-workspace-indicator`.
 
 Umbrella issues (e.g. #10) are split into their own issues before work starts.
+Work not tied to an issue uses `<type>/<slug>` (e.g. `docs/require-green-ci`).
 
 ### Chunked issue work
 When an issue can be split, state a chunk plan first. Each chunk must pass
@@ -48,3 +50,8 @@ and create it, via `gh` or the GitHub MCP tools, only after confirmation.
 
 ### Pull requests
 Title follows the commit format; body includes `Closes #<issue>`. Squash-merge into main.
+
+CI is the `test` job of `.github/workflows/test.yml`, which runs on every PR to main
+and every push to main. Merge only once that check has passed on the PR's latest
+commit: never merge while it is pending or failing, and never bypass it. A failing
+check is fixed on the PR branch, not skipped.
