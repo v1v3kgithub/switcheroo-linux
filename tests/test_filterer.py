@@ -75,6 +75,28 @@ class TestWindowFilterer(unittest.TestCase):
         )
         self.assertEqual(len(results_empty), 0)
 
+    def test_equal_scores_keep_input_order(self):
+        # Both Firefox windows match only on process, so they tie; the input order
+        # (MRU order from WindowFinder) decides the ranking.
+        results = self.filterer.filter([self.w3, self.w1, self.w2], "firefox")
+        self.assertEqual([r.xid for r in results], [self.w3.xid, self.w2.xid])
+
+        results = self.filterer.filter([self.w2, self.w1, self.w3], "firefox")
+        self.assertEqual([r.xid for r in results], [self.w2.xid, self.w3.xid])
+
+    def test_higher_score_outranks_input_order(self):
+        # Both match "set": a prefix match on "Settings" outscores a contains match on
+        # "Reset Notes", even though the weaker match comes first in MRU order.
+        weaker = AppWindow(xid=5, wnck_window=None, title="Reset Notes", process_title="Editor", pid=500)
+        stronger = AppWindow(xid=6, wnck_window=None, title="Settings", process_title="Editor", pid=600)
+        results = self.filterer.filter([weaker, stronger], "set")
+        self.assertEqual([r.xid for r in results], [stronger.xid, weaker.xid])
+
+    def test_empty_query_keeps_input_order(self):
+        ordered = [self.w4, self.w2, self.w1, self.w3]
+        results = self.filterer.filter(ordered, "")
+        self.assertEqual([r.xid for r in results], [w.xid for w in ordered])
+
 
 if __name__ == "__main__":
     unittest.main()
